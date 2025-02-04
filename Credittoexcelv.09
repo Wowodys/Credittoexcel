@@ -1,0 +1,41 @@
+import pdfplumber
+import pandas as pd
+import os
+from openpyxl import load_workbook
+
+def extract_transactions_from_pdf(pdf_path):
+    transactions = []
+    with pdfplumber.open(pdf_path) as pdf:
+        for page in pdf.pages:
+            text = page.extract_text()
+            if text:
+                lines = text.split("\n")
+                for line in lines:
+                    parts = line.split()
+                    if len(parts) >= 4:  # Assuming format: Date | Description | Amount | Status
+                        date, description, amount, status = parts[0], " ".join(parts[1:-2]), parts[-2], parts[-1]
+                        transactions.append([date, description, amount, status])
+    return transactions
+
+def save_to_excel(transactions, excel_path):
+    df = pd.DataFrame(transactions, columns=["Date", "Description", "Amount", "Status"])
+    
+    if os.path.exists(excel_path):
+        with pd.ExcelWriter(excel_path, mode='a', if_sheet_exists='overlay', engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='Transactions', index=False, startrow=writer.sheets['Transactions'].max_row)
+    else:
+        df.to_excel(excel_path, sheet_name='Transactions', index=False)
+
+def main():
+    pdf_path = "statements/sample_statement.pdf"  # Update with actual path
+    excel_path = "statements/transactions.xlsx"  # Update with actual path
+    
+    transactions = extract_transactions_from_pdf(pdf_path)
+    if transactions:
+        save_to_excel(transactions, excel_path)
+        print(f"Transactions successfully saved to {excel_path}")
+    else:
+        print("No transactions found in the PDF.")
+
+if __name__ == "__main__":
+    main()
